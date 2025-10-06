@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, user-scalable=no, minimum-scale=1, maximum-scale=1"
+    />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="format-detection" content="telephone=no" />
+    <title>合成大西瓜</title>
+  </head>
+  <body>
+    <div class="game-container">
+      <header>
+        <h1>合成🦆大</h1>
+        <div class="status">
+          <span id="score">Score: 0</span>
+        </div>
+      </header>
+      <canvas id="game" width="360" height="600"></canvas>
+      <div class="help">点击或按空格掉落校徽，相同合并升级！</div>
+      <div class="overlay" id="overlay">
+        <div class="message" id="message"></div>
+        <button id="restart">重新开始</button>
+      </div>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

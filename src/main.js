@@ -231,15 +231,29 @@ function hideOverlay() {
   setDangerVisual(0);
 }
 
+function computeMergeReward(nextTypeIndex, isFinal) {
+  const maxIndex = FRUIT_TYPES.length - 1;
+  if (isFinal && nextTypeIndex === maxIndex) {
+    return 100;
+  }
+  // From small to large: 2,3,...,10 based on fruit level
+  return nextTypeIndex + 1;
+}
+
+function computeFailurePenalty() {
+  // Negative reward for failing the game
+  return -1000;
+}
+
 function triggerWin() {
   if (gameOver) return;
-  updateScoreDisplay(100);
   showOverlay('Nice! 你合成出了大西瓜！<br>额外奖励 +100');
   gameOver = true;
 }
 
 function triggerLose(reason) {
   if (gameOver) return;
+  updateScoreDisplay(computeFailurePenalty());
   setDangerVisual(1);
   showOverlay(reason);
   gameOver = true;
@@ -385,17 +399,19 @@ function performMerge(metaA, metaB) {
 
   scheduleMergeTween(newMeta.body.id, posX, posY - lift, FRUIT_TYPES[nextType].radius);
 
-  updateScoreDisplay(metaA.typeIndex + 1);
+  const isFinal = nextType === FRUIT_TYPES.length - 1;
+  const mergeReward = computeMergeReward(nextType, isFinal);
+  updateScoreDisplay(mergeReward);
   updateBestFruit(nextType);
 
   scoreBursts.push({
     createdAt: performance.now(),
     x: posX,
     y: posY - lift,
-    value: metaA.typeIndex + 1
+    value: mergeReward
   });
 
-  if (nextType === FRUIT_TYPES.length - 1) {
+  if (isFinal) {
     triggerWin();
   }
 }
@@ -638,3 +654,70 @@ restartBtn.addEventListener('click', () => {
 });
 
 resetGame();
+
+// Simple control/debug API for external agents (e.g. Selenium)
+if (typeof window !== 'undefined') {
+  window.__BIGWATERMELON__ = {
+    // Discrete agent action: x is in canvas pixel coordinates
+    act(x) {
+      if (gameOver) return;
+      const radius = FRUIT_TYPES[currentFruitIndex].radius;
+      const margin = radius + 10;
+      const clamped = clamp(x, margin, canvas.width - margin);
+      pointerTargetX = clamped;
+      pointerX = clamped;
+      dropPendingFruit();
+    },
+    reset() {
+      resetGame();
+    },
+    getScore() {
+      return score;
+    },
+    isOver() {
+      return gameOver;
+    },
+    getCanvasWidth() {
+      return canvas.width;
+    }
+  };
+}
+
+// Simple control/debug API for external agents (e.g. Selenium/Playwright)
+if (typeof window !== 'undefined') {
+  window.__BIGWATERMELON__ = {
+    // [EXISTING] Action
+    act(x) {
+      if (gameOver) return;
+      const radius = FRUIT_TYPES[currentFruitIndex].radius;
+      const margin = radius + 10;
+      const clamped = clamp(x, margin, canvas.width - margin);
+      pointerTargetX = clamped;
+      pointerX = clamped;
+      dropPendingFruit();
+    },
+    reset() {
+      resetGame();
+    },
+    getScore() {
+      return score;
+    },
+    isOver() {
+      return gameOver;
+    },
+    getCanvasWidth() {
+      return canvas.width;
+    },
+    
+    // --- [NEW] ADD THESE LINES FOR DQN AGENT ---
+    // Expose engine for physics monitoring and speed hacking
+    engine: engine, 
+    // Expose next fruit info
+    getNextFruitIndex() {
+      return upcomingFruitIndex;
+    }
+  };
+
+  // Optional: Alias for compatibility if needed
+  window.gameEngine = engine;
+}

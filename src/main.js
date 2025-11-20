@@ -655,7 +655,7 @@ restartBtn.addEventListener('click', () => {
 
 resetGame();
 
-// Simple control/debug API for external agents (e.g. Selenium)
+// Simple control/debug API for external agents (e.g. Selenium/Playwright)
 if (typeof window !== 'undefined') {
   window.__BIGWATERMELON__ = {
     // Discrete agent action: x is in canvas pixel coordinates
@@ -679,42 +679,54 @@ if (typeof window !== 'undefined') {
     },
     getCanvasWidth() {
       return canvas.width;
-    }
-  };
-}
-
-// Simple control/debug API for external agents (e.g. Selenium/Playwright)
-if (typeof window !== 'undefined') {
-  window.__BIGWATERMELON__ = {
-    // [EXISTING] Action
-    act(x) {
-      if (gameOver) return;
-      const radius = FRUIT_TYPES[currentFruitIndex].radius;
-      const margin = radius + 10;
-      const clamped = clamp(x, margin, canvas.width - margin);
-      pointerTargetX = clamped;
-      pointerX = clamped;
-      dropPendingFruit();
     },
-    reset() {
-      resetGame();
-    },
-    getScore() {
-      return score;
-    },
-    isOver() {
-      return gameOver;
-    },
-    getCanvasWidth() {
-      return canvas.width;
-    },
-    
-    // --- [NEW] ADD THESE LINES FOR DQN AGENT ---
-    // Expose engine for physics monitoring and speed hacking
-    engine: engine, 
     // Expose next fruit info
     getNextFruitIndex() {
       return upcomingFruitIndex;
+    },
+    // Number of fruit types
+    getFruitTypeCount() {
+      return FRUIT_TYPES.length;
+    },
+    // Structured state for RL agents
+    getState() {
+      const fruits = [];
+      let topEdge = canvas.height;
+
+      for (const meta of fruitBodies.values()) {
+        const body = meta.body;
+        const radius = FRUIT_TYPES[meta.typeIndex].radius;
+        const xNorm = body.position.x / canvas.width;
+        const yNorm = body.position.y / canvas.height;
+        const rNorm = radius / canvas.width;
+        fruits.push({
+          x: xNorm,
+          y: yNorm,
+          radius: rNorm,
+          typeIndex: meta.typeIndex
+        });
+
+        const top = body.position.y - radius;
+        if (top < topEdge) {
+          topEdge = top;
+        }
+      }
+
+      let heightRatio = 0;
+      if (fruits.length > 0) {
+        const clampedTop = Math.max(0, Math.min(canvas.height, topEdge));
+        heightRatio = 1 - clampedTop / canvas.height;
+      }
+
+      return {
+        currentFruitIndex,
+        upcomingFruitIndex,
+        score,
+        gameOver,
+        dangerIndicator,
+        heightRatio,
+        fruits
+      };
     }
   };
 

@@ -12,7 +12,7 @@ def make_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Evaluate trained Double DQN agent")
     parser.add_argument("--url", type=str, default="http://localhost:5173")
     parser.add_argument("--n_actions", type=int, default=30)
-    parser.add_argument("--step_delay", type=float, default=0.05)
+    parser.add_argument("--step_delay", type=float, default=0.3)
     parser.add_argument("--headless", action="store_true", help="Run without UI")
 
     parser.add_argument(
@@ -38,7 +38,7 @@ def main() -> None:
         headless=args.headless,
     )
 
-    q_net = DQN(num_inputs=1, n_actions=args.n_actions).to(device)
+    q_net = DQN(state_dim=env.state_dim, n_actions=args.n_actions).to(device)
     q_net.load_state_dict(torch.load(args.model_path, map_location=device))
     q_net.eval()
 
@@ -50,9 +50,7 @@ def main() -> None:
 
             while True:
                 with torch.no_grad():
-                    s_tensor = (
-                        torch.from_numpy(state).unsqueeze(0).to(device)
-                    )  # (1,1,80,80)
+                    s_tensor = torch.from_numpy(state).unsqueeze(0).to(device)
                     q_values = q_net(s_tensor)
                     action = int(q_values.argmax(dim=1).item())
 

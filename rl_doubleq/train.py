@@ -8,7 +8,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from .model import DQN, ReplayBuffer
+from .model import DuelingDQN, ReplayBuffer
 from .safe_vec_env import SafeVecEnv, make_env
 
 
@@ -84,8 +84,8 @@ def linear_epsilon(step: int, start: float, final: float, decay: int) -> float:
 
 
 def train_step(
-    q_net: DQN,
-    target_net: DQN,
+    q_net: DuelingDQN,
+    target_net: DuelingDQN,
     replay_buffer: ReplayBuffer,
     optimizer: torch.optim.Optimizer,
     batch_size: int,
@@ -143,8 +143,8 @@ def main() -> None:
     with SafeVecEnv(env_fns) as vec_env:
         state_dim = vec_env.get_state_dim()
 
-        q_net = DQN(state_dim=state_dim, n_actions=args.n_actions).to(device)
-        target_net = DQN(state_dim=state_dim, n_actions=args.n_actions).to(device)
+        q_net = DuelingDQN(state_dim=state_dim, n_actions=args.n_actions).to(device)
+        target_net = DuelingDQN(state_dim=state_dim, n_actions=args.n_actions).to(device)
         target_net.load_state_dict(q_net.state_dict())
         target_net.eval()
 
@@ -172,16 +172,24 @@ def main() -> None:
                 decay=args.epsilon_decay,
             )
 
-            # Select actions for each environment
+            # Batch epsilon-greedy action selection
+            explore_mask = np.random.rand(args.num_envs) < epsilon
             actions = np.empty(args.num_envs, dtype=np.int64)
-            for i in range(args.num_envs):
-                if np.random.rand() < epsilon:
-                    actions[i] = np.random.randint(args.n_actions)
-                else:
-                    with torch.no_grad():
-                        s_tensor = torch.from_numpy(states[i]).unsqueeze(0).to(device)
-                        q_vals = q_net(s_tensor)
-                        actions[i] = int(q_vals.argmax(dim=1).item())
+
+            # Exploration: random actions
+            if np.any(explore_mask):
+                actions[explore_mask] = np.random.randint(
+                    0, args.n_actions, size=np.sum(explore_mask), dtype=np.int64
+                )
+
+            # Exploitation: greedy actions via single batched forward pass
+            if np.any(~explore_mask):
+                batch_states = states[~explore_mask]
+                with torch.no_grad():
+                    s_tensor = torch.from_numpy(batch_states).to(device)
+                    q_vals = q_net(s_tensor)
+                    greedy_actions = q_vals.argmax(dim=1).cpu().numpy().astype(np.int64)
+                actions[~explore_mask] = greedy_actions
 
             next_states, rewards, dones = vec_env.step(actions)
 

@@ -42,6 +42,23 @@ class DQN(nn.Module):
         return self.fc3(x)
 
 
+class DuelingDQN(nn.Module):
+    def __init__(self, state_dim: int, n_actions: int) -> None:
+        super().__init__()
+        self.fc1 = nn.Linear(state_dim, 256)
+        self.fc2 = nn.Linear(256, 256)
+        self.fc_adv = nn.Linear(256, n_actions)
+        self.fc_val = nn.Linear(256, 1)
+        self.apply(weights_init)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        adv = self.fc_adv(x)
+        val = self.fc_val(x)
+        return val + adv - adv.mean(dim=1, keepdim=True)
+
+
 class ReplayBuffer:
     def __init__(self, capacity: int, state_dim: int) -> None:
         self.capacity = capacity

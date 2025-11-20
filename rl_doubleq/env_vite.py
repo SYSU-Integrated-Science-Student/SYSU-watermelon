@@ -89,8 +89,12 @@ class BigWatermelonEnv:
         offset += 1
 
         fruits = info.get("fruits", []) or []
-        # Canonicalize ordering: from bottom to top (larger y first in normalized coords)
-        fruits = sorted(fruits, key=lambda f: float(f.get("y", 0.0)), reverse=True)
+        # Canonicalize ordering: primarily by height (y), then by x-position for stability
+        fruits = sorted(
+            fruits,
+            key=lambda f: (float(f.get("y", -1.0)), float(f.get("x", -1.0))),
+            reverse=True,
+        )
         max_slots = self.max_fruits
         for idx, fruit in enumerate(fruits[:max_slots]):
             base = offset + idx * 5

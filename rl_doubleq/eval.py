@@ -5,7 +5,7 @@ import numpy as np
 import torch
 
 from .env_vite import BigWatermelonEnv
-from .model import DQN
+from .model import DuelingDQN
 
 
 def make_parser() -> argparse.ArgumentParser:
@@ -29,7 +29,7 @@ def main() -> None:
     parser = make_parser()
     args = parser.parse_args()
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cpu")
 
     env = BigWatermelonEnv(
         url=args.url,
@@ -38,13 +38,17 @@ def main() -> None:
         headless=args.headless,
     )
 
-    q_net = DQN(state_dim=env.state_dim, n_actions=args.n_actions).to(device)
+    q_net = DuelingDQN(state_dim=env.state_dim, n_actions=args.n_actions).to(device)
     q_net.load_state_dict(torch.load(args.model_path, map_location=device))
     q_net.eval()
 
     try:
         for ep in range(1, args.episodes + 1):
             state = env.reset()
+            env.page.evaluate(
+                "() => { if(window.__BIGWATERMELON__?.engine?.timing) "
+                "window.__BIGWATERMELON__.engine.timing.timeScale = 3.0; }"
+            )
             episode_reward = 0.0
             steps = 0
 
